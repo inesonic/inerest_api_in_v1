@@ -10,11 +10,19 @@ The library is currently used by cloud based infrastructure used as part of the
 **SpeedSentry** site monitoring system.  Both products are, or were, supported
 and sold by `Inesonic, LLC <https://inesonic.com>`.
 
+.. note::
+
+   The format we use for our messages is technically not *REST* so using the
+   term *REST* here is a misnomer.  With that said, the format is *REST* like
+   in that it meets most of the major criteria for REST.
+
+   With only minimal work, you can easily use the provided classes to implement
+   your own fully REST compliant APIs.
+
 
 Licensing
 =========
-This library is dual licensed under both the LGPL, Version 3 and also under
-commercial licensing terms.
+This library is licensed under MIT license terms.
 
 
 Dependencies And Building
@@ -92,6 +100,64 @@ command line.
 |                        | directories to the inecrypto library search path.  |
 |                        | Separate paths with spaces.                        |
 +------------------------+----------------------------------------------------+
+
+
+Server Behind A Proxy
+=====================
+For the applications where we've used these libraries, we've placed our server
+behind an NGINX reverse proxy.   Doing this allows the reverse proxy to filter
+messages and provide TLS encryption.
+
+A typical NGINX configuration we use would look like:
+
+.. code-block::
+
+   ##
+   # Configuration for the NGINX reverse proxy.
+   ##
+
+   server {
+       listen 443 ssl http2;
+       server_name <my.domain>;
+
+       add_header Strict-Transport-Security "max-age=31536000; includeSubdomains" always;
+
+       location / {
+           add_header X-Robots-Tag noindex,nofollow;
+           root /var/www/html;
+           index index.html;
+       }
+
+       location /td {
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_pass http://localhost:8080;
+       }
+
+       location ~ /(v1|customer|mapping|event|host_scheme|latency|monitor|multiple|region|server)/ {
+           proxy_set_header Host $host;
+           proxy_set_header X-Real-IP $remote_addr;
+           proxy_pass http://localhost:8080;
+       }
+
+       ssl_certificate /etc/letsencrypt/live/<my.domain>/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/<my.domain>/privkey.pem;
+       include /etc/letsencrypt/options-ssl-nginx.conf;
+       ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+   }
+
+   server {
+       listen 80;
+       if ($host = <my.domain>) {
+           return 301 https://$host$request_uri;
+       }
+
+       server_name <my.domain>;
+       return 404;
+   }
+
+Be sure to replace ``<my.domain>`` with your actual server's FQDN.
 
 
 Using The Library In Your Code
@@ -271,6 +337,15 @@ Below is an example defining two endpoints using the
            Image imageHandler;
    };
 
+The ``threadId`` parameter is incorrectly named in that it doesn't identify a
+unique thread.  Instead the thread ID is an integer value ranging from 0 to the
+maximum number of simultaneous connections that is guaranteed unique during the
+lifespan of a given connection.  You can use the ``threadId`` parameter to
+index global or class scope resources that must be accessed consistently during
+the lifespan of a connection.  The numbers will be reused but are guaranteed
+unique during the lifespan of execution of a single received request and
+subsequent response.
+
 The "customer" REST API handlers are designed to allow you to have REST APIs
 with customer unique secrets.  These classes accept a
 ``RestApiInV1::CustomerData`` instance that queries or generates an appropriate
@@ -309,11 +384,11 @@ in the projects documented below.
 +----------+------------------------------------------------------+
 | Language | Project                                              |
 +==========+======================================================+
-| C++      | https://github.com/tuxidriver/inerest_api_out_v1     |
+| C++      | https://github.com/inesonic/inerest_api_out_v1       |
 +----------+------------------------------------------------------+
-| Python   | https://github.com/tuxidriver/speedsentry_python_api |
+| Python   | https://github.com/inesonic/speedsentry_python_api   |
 +----------+------------------------------------------------------+
-| PHP      | https://github.com/tuxidriver/speedsentry_php_api    |
+| PHP      | https://github.com/inesonic/speedsentry_php_api      |
 +----------+------------------------------------------------------+
 
 
@@ -330,7 +405,8 @@ format provides:
 
 * safe operation with different character encodings, and
 
-* the ability to operate across 8-bit unsafe transport mechanisms.
+* the ability to operate across 8-bit unsafe transport mechanisms that might
+  change character encodings or otherwise impact the received data.
 
 
 Account Secrets
