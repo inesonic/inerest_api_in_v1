@@ -59,11 +59,11 @@ defined and will alway build the library as a static library.
 
 cmake
 -----
-To build inecrypto using cmake:
+To build inerest_api_in_v1 using cmake:
 
 .. code-block:: bash
 
-   cd inecrypto
+   cd inerest_api_in_v1
    mkdir build
    cmake -B. -H.. -DCMAKE_INSTALL_PREFIX=/usr/local/
    make
@@ -72,7 +72,7 @@ To install, simply run
 
 .. code-block:: bash
 
-   make install
+   sudo make install
 
 You can optionally also include any of the following variables on the cmake
 command line.
